@@ -54,9 +54,9 @@ export function AttendeeView() {
 
   function handleVote() {
     if (!activePoll || selected.length === 0 || participantToken == null) return
-    const optionIds = activePoll.options.map((_, index: number) => index).filter((index: number) =>
-      selected.includes(index),
-    )
+    const optionIds = activePoll.options
+      .filter((_, index) => selected.includes(index))
+      .map((option) => option.id)
     vote(activePoll.pollId, optionIds)
       .then(() => setVoted(true))
       .catch(() => {})
@@ -66,7 +66,11 @@ export function AttendeeView() {
     event.preventDefault()
     if (!newQuestion.trim() || participantToken == null) return
     askQuestion(newQuestion.trim())
-      .then(() => setNewQuestion(''))
+      .then((created) => {
+        setNewQuestion('')
+        upvoteQuestion(created.id)
+        setUpvotedQuestionIds((current) => new Set([...current, created.id]))
+      })
       .catch(() => {})
   }
 
@@ -122,7 +126,6 @@ export function AttendeeView() {
       <header className="attendee-nav">
         <Logo />
         <div>
-          <span><i /> Live</span>
           <strong>{code}</strong>
         </div>
       </header>
@@ -136,8 +139,6 @@ export function AttendeeView() {
           <article className="active-poll">
             <div className="active-label">
               <Icon name="radio" />
-              <span>LIVE POLL</span>
-              <small>{activePoll.multipleChoice ? 'Choose all that apply' : 'Choose one'}</small>
             </div>
             <h2>{activePoll.question}</h2>
             <div className="answer-list">
@@ -171,7 +172,6 @@ export function AttendeeView() {
           <div className="waiting-card">
             <Icon name="radio" size={28} />
             <h2>Waiting for the next poll</h2>
-            <p>The host will launch one soon.</p>
           </div>
         )}
 

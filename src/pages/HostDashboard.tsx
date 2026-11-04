@@ -9,7 +9,8 @@ import type { PollOption } from '../types'
 export function HostDashboard() {
   const {
     code,
-    hostToken,
+    participantCount,
+    pollUpdateVersion,
     polls,
     questions,
     status,
@@ -24,14 +25,15 @@ export function HostDashboard() {
     deleteQuestion,
   } = useSession()
 
-  const [tab, setTab] = useState<'polls' | 'questions'>('polls')
   const [showComposer, setShowComposer] = useState(false)
   const [pollQuestion, setPollQuestion] = useState('')
   const [pollType, setPollType] = useState<'single' | 'multiple'>('single')
   const [options, setOptions] = useState(['', ''])
   const [confirmEnd, setConfirmEnd] = useState(false)
+  const [minimizedPolls, setMinimizedPolls] = useState<Set<number>>(new Set())
 
   const activePoll = polls.find((p) => p.status === 'ACTIVE')
+  const visibleCount = questions.filter((q) => q.status === 'VISIBLE').length
 
   function handleCreatePoll(event: FormEvent) {
     event.preventDefault()
@@ -67,6 +69,15 @@ export function HostDashboard() {
     closePoll(pollId).catch(() => {})
   }
 
+  function toggleMinimizePoll(pollId: number) {
+    setMinimizedPolls((current) => {
+      const next = new Set(current)
+      if (next.has(pollId)) next.delete(pollId)
+      else next.add(pollId)
+      return next
+    })
+  }
+
   function handleToggleVisibility(questionId: number, visible: boolean) {
     setError(null)
     toggleQuestionStatus(questionId, visible ? 'HIDDEN' : 'VISIBLE').catch(() => {})
@@ -81,14 +92,14 @@ export function HostDashboard() {
     setConfirmEnd(true)
   }
 
-  function confirmEndSession() {
+  function cancelEnd() {
     setConfirmEnd(false)
-    if (window.confirm('Ending the session will close voting and questions for everyone. Continue?')) {
-      endSession().catch(() => {})
-    }
   }
 
-  const visibleCount = questions.filter((q) => q.status === 'VISIBLE').length
+  function confirmEndSession() {
+    setConfirmEnd(false)
+    endSession().catch(() => {})
+  }
 
   return (
     <main className="dashboard-page">
@@ -101,26 +112,23 @@ export function HostDashboard() {
           <button type="button" onClick={() => navigator.clipboard?.writeText(code ?? '')} aria-label="Copy session code">
             Copy
           </button>
-          {hostToken && (
-            <div className="token-card">
-              <p>Host token — shown once, cannot be reset</p>
-              <div className="token-value">
-                <code>{hostToken}</code>
-                <button type="button" onClick={() => navigator.clipboard?.writeText(hostToken)} aria-label="Copy host token">
-                  Copy
+        </div>
+        <div className="session-actions">
+          {confirmEnd ? (
+            <div className="end-confirm">
+              <p className="end-confirm-text">Are you sure?</p>
+              <div className="end-confirm-actions">
+                <button type="button" className="text-button" onClick={cancelEnd} disabled={loading || status === 'ENDED'}>
+                  Cancel
+                </button>
+                <button type="button" className="primary-button" onClick={confirmEndSession} disabled={loading || status === 'ENDED'}>
+                  Yes, end session
                 </button>
               </div>
             </div>
-          )}
-        </div>
-        <div className="session-actions">
-          <span className="live-pill"><i /> {status === 'ACTIVE' ? 'Live session' : 'Session ended'}</span>
-          <button className="end-button" onClick={handleEnd} disabled={loading || status === 'ENDED'}>
-            {confirmEnd ? 'Confirm end?' : 'End session'}
-          </button>
-          {confirmEnd && (
-            <button type="button" className="primary-button" onClick={confirmEndSession} disabled={loading || status === 'ENDED'}>
-              Yes, end session
+          ) : (
+            <button className="end-button" onClick={handleEnd} disabled={loading || status === 'ENDED'}>
+              End session
             </button>
           )}
         </div>
@@ -129,124 +137,129 @@ export function HostDashboard() {
       <div className="dashboard-shell">
         <aside>
           <p className="side-label">Workspace</p>
-          <button className={tab === 'polls' ? 'active' : ''} onClick={() => setTab('polls')}>
-            <Icon name="chart" /> Polls <span>{polls.length}</span>
-          </button>
-          <button className={tab === 'questions' ? 'active' : ''} onClick={() => setTab('questions')}>
-            <Icon name="message" /> Questions <span>{visibleCount}</span>
-          </button>
           <div className="audience-card">
             <Icon name="users" />
-            <strong>—</strong>
+            <strong>{participantCount}</strong>
             <span>people joined</span>
-            <div>
-              <i />
-              <p>Audience connected</p>
-            </div>
           </div>
         </aside>
         <section className="dash-content">
           <div className="content-heading">
             <div>
-              <p className="eyebrow plain">{tab === 'polls' ? 'Live polling' : 'Audience Q&A'}</p>
-              <h1>{tab === 'polls' ? 'Polls' : 'Questions'}</h1>
-              <p>
-                {tab === 'polls' ? 'Create, launch, and review audience polls.' : 'Moderate what your audience wants to know.'}
-              </p>
+              <p className="eyebrow plain">Session dashboard</p>
+              <h1>Polls &amp; Questions</h1>
+
             </div>
-            {tab === 'polls' && (
-              <button className="primary-button" onClick={() => setShowComposer((v) => !v)} disabled={loading}>
-                <Icon name={showComposer ? 'x' : 'plus'} /> {showComposer ? 'Cancel' : 'New poll'}
-              </button>
-            )}
+            <button className="primary-button" onClick={() => setShowComposer((v) => !v)} disabled={loading}>
+              <Icon name={showComposer ? 'x' : 'plus'} /> {showComposer ? 'Cancel' : 'New poll'}
+            </button>
           </div>
 
-          {tab === 'polls' ? (
-            <div className="poll-list">
-              {showComposer && (
-                <form className="composer" onSubmit={handleCreatePoll}>
-                  <div className="composer-title">
-                    <div>
-                      <span>New poll</span>
-                      <h3>Ask your audience</h3>
-                    </div>
-                    <div className="type-toggle">
-                      <button
-                        type="button"
-                        className={pollType === 'single' ? 'selected' : ''}
-                        onClick={() => setPollType('single')}
-                        disabled={loading}
-                      >
-                        Single choice
-                      </button>
-                      <button
-                        type="button"
-                        className={pollType === 'multiple' ? 'selected' : ''}
-                        onClick={() => setPollType('multiple')}
-                        disabled={loading}
-                      >
-                        Multiple choice
-                      </button>
-                    </div>
+          {/* Polls section */}
+          <section className="section-block">
+            <div className="section-header">
+              <h2>Polls</h2>
+            </div>
+
+            {showComposer && (
+              <form className="composer" onSubmit={handleCreatePoll}>
+                <div className="composer-title">
+                  <div>
+                    <span>New poll</span>
+                    <h3>Ask your audience</h3>
                   </div>
-                  <label>Question</label>
-                  <input
-                    value={pollQuestion}
-                    onChange={(e) => setPollQuestion(e.target.value)}
-                    placeholder="What would you like to ask?"
-                    autoFocus
-                    disabled={loading}
-                  />
-                  <div className="option-fields">
-                    {options.map((option, index) => (
-                      <label key={index}>
-                        Option {index + 1}
-                        <div>
-                          <span>{String.fromCharCode(65 + index)}</span>
-                          <input
-                            value={option}
-                            onChange={(e) =>
-                              setOptions((all) => all.map((item, i) => (i === index ? e.target.value : item)))
-                            }
-                            placeholder="Type an answer"
-                            disabled={loading}
-                          />
-                        </div>
-                      </label>
-                    ))}
-                  </div>
-                  <div className="composer-actions">
-                    <button type="button" className="text-button" onClick={addOption} disabled={loading}>
-                      <Icon name="plus" size={16} /> Add option
+                  <div className="type-toggle">
+                    <button
+                      type="button"
+                      className={pollType === 'single' ? 'selected' : ''}
+                      onClick={() => setPollType('single')}
+                      disabled={loading}
+                    >
+                      <Icon name="radio" size={12} />
                     </button>
-                    <button className="primary-button" type="submit" disabled={loading || !pollQuestion.trim() || options.filter((o) => o.trim()).length < 2}>
-                      Save as draft
+                    <button
+                      type="button"
+                      className={pollType === 'multiple' ? 'selected' : ''}
+                      onClick={() => setPollType('multiple')}
+                      disabled={loading}
+                    >
+                      <Icon name="check" size={12} />
                     </button>
                   </div>
-                </form>
-              )}
-              {polls.length === 0 && !showComposer && (
-                <div className="poll-card" style={{ padding: 40, textAlign: 'center', color: '#8c9690' }}>
-                  No polls yet. Create your first poll to get started.
                 </div>
-              )}
+                <label>Question</label>
+                <input
+                  value={pollQuestion}
+                  onChange={(e) => setPollQuestion(e.target.value)}
+                  placeholder="What would you like to ask?"
+                  autoFocus
+                  disabled={loading}
+                />
+                <div className="option-fields">
+                  {options.map((option, index) => (
+                    <label key={index}>
+                      Option {index + 1}
+                      <div>
+                        <span>{String.fromCharCode(65 + index)}</span>
+                        <input
+                          value={option}
+                          onChange={(e) =>
+                            setOptions((all) => all.map((item, i) => (i === index ? e.target.value : item)))
+                          }
+                          placeholder="Type an answer"
+                          disabled={loading}
+                        />
+                      </div>
+                    </label>
+                  ))}
+                </div>
+                <div className="composer-actions">
+                  <button type="button" className="text-button" onClick={addOption} disabled={loading}>
+                    <Icon name="plus" size={16} /> Add option
+                  </button>
+                  <button className="primary-button" type="submit" disabled={loading || !pollQuestion.trim() || options.filter((o) => o.trim()).length < 2}>
+                    Save as draft
+                  </button>
+                </div>
+              </form>
+            )}
+
+            {polls.length === 0 && !showComposer && (
+              <div className="poll-card" style={{ padding: 40, textAlign: 'center', color: '#8c9690' }}>
+                No polls yet. Create your first poll to get started.
+              </div>
+            )}
+
+            <div key={String(pollUpdateVersion)}>
               {polls.map((poll, index) => {
                 const total = poll.options.reduce((sum: number, o: PollOption) => sum + o.votes, 0)
+                const isMinimized = minimizedPolls.has(poll.pollId)
                 return (
-                  <article className={`poll-card ${poll.status.toLowerCase()}`} key={poll.pollId}>
+                  <article className={`poll-card ${poll.status.toLowerCase()}${isMinimized ? ' minimized' : ''}`} key={poll.pollId}>
                     <div className="poll-top">
+                      <button
+                        className="minimize-button"
+                        onClick={() => toggleMinimizePoll(poll.pollId)}
+                        disabled={loading || status === 'ENDED'}
+                        title={isMinimized ? 'Show poll' : 'Minimize poll'}
+                        aria-label={isMinimized ? 'Show poll' : 'Minimize poll'}
+                      >
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={isMinimized ? { transform: 'rotate(180deg)' } : {}}>
+                          <polyline points="18 6 12 12 6 6" />
+                        </svg>
+                      </button>
                       <div className="poll-number">0{polls.length - index}</div>
                       <div className="poll-title">
                         <div>
                           <span className={`status ${poll.status.toLowerCase()}`}>{poll.status}</span>
-                          <span>{poll.multipleChoice ? 'Multiple choice' : 'Single choice'}</span>
+
                         </div>
                         <h3>{poll.question}</h3>
                       </div>
                       <button
                         className={poll.status === 'ACTIVE' ? 'outline-button danger' : 'outline-button'}
                         onClick={() => (poll.status === 'ACTIVE' ? handleClose(poll.pollId) : handleLaunch(poll.pollId))}
-                        disabled={loading || status === 'ENDED'}
+                        disabled={loading || status === 'ENDED' || isMinimized}
                       >
                         {poll.status === 'ACTIVE'
                           ? 'Close poll'
@@ -255,79 +268,93 @@ export function HostDashboard() {
                             : 'Re-launch'}
                       </button>
                     </div>
-                    <div className="results">
-                      {poll.options.map((option: PollOption, optionIndex: number) => {
-                        const percent = total ? Math.round((option.votes / total) * 100) : 0
-                        return (
-                          <div className="result" key={String(option.id)}>
-                            <div className="result-label">
-                              <span>
-                                <i>{String.fromCharCode(65 + optionIndex)}</i>{option.text}
-                              </span>
-                              <strong>{option.votes} <small>votes</small></strong>
-                            </div>
-                            <div className="track">
-                              <span style={{ width: `${percent}%` }} />
-                            </div>
-                          </div>
-                        )
-                      })}
-                    </div>
-                    <div className="poll-footer">
-                      <span>{total} total votes</span>
-                      {poll.status === 'ACTIVE' && <span className="accepting"><i /> Accepting responses</span>}
-                    </div>
+                    {!isMinimized && (
+                      <>
+                        <div className="results">
+                          {poll.options.map((option: PollOption, optionIndex: number) => {
+                            const percent = total ? Math.round((option.votes / total) * 100) : 0
+                            return (
+                              <div className="result" key={String(option.id)}>
+                                <div className="result-label">
+                                  <span>
+                                    <i>{String.fromCharCode(65 + optionIndex)}</i>{option.text}
+                                  </span>
+                                  <strong>{option.votes} <small>votes</small></strong>
+                                </div>
+                                <div className="track">
+                                  <span style={{ width: `${percent}%` }} />
+                                </div>
+                              </div>
+                            )
+                          })}
+                        </div>
+                        <div className="poll-footer">
+                          <span>{total} total votes</span>
+                          {poll.status === 'ACTIVE' && <span className="accepting"><i /> Accepting responses</span>}
+                        </div>
+                      </>
+                    )}
+                    {isMinimized && (
+                      <div className="poll-minimized">
+                        <span>{total} total votes</span>
+                        <span className="minimized-hint">Click to expand</span>
+                      </div>
+                    )}
                   </article>
                 )
               })}
             </div>
-          ) : (
-            <div className="question-list host-questions">
-              <div className="list-caption">
-                <span>{questions.length} questions</span>
-                <span>Sorted by popularity</span>
-              </div>
-              {questions.length === 0 && (
-                <div className="poll-card" style={{ padding: 40, textAlign: 'center', color: '#8c9690' }}>
-                  No questions yet.
-                </div>
-              )}
-              {[...questions].sort((a, b) => b.upvotes - a.upvotes || new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()).map((question) => (
-                <article className={`question-card${question.status === 'HIDDEN' ? ' hidden-question' : ''}`} key={question.id}>
-                  <div className="vote-box">
-                    <strong>{question.upvotes}</strong>
-                    <span>votes</span>
-                  </div>
-                  <div className="question-copy">
-                    <p>{question.text}</p>
-                    <span>
-                      {question.authorName ? `${question.authorName} · ` : ''}
-                      {question.status === 'VISIBLE' ? 'Visible to everyone' : 'Hidden from audience'}
-                    </span>
-                  </div>
-                  <div className="moderation">
-                    <button
-                      title={question.status === 'VISIBLE' ? 'Hide question' : 'Show question'}
-                      onClick={() => handleToggleVisibility(question.id, question.status === 'VISIBLE')}
-                      disabled={loading || status === 'ENDED'}
-                    >
-                      <Icon name={question.status === 'VISIBLE' ? 'eyeOff' : 'eye'} />
-                    </button>
-                    <button
-                      title="Delete question"
-                      className="delete"
-                      onClick={() => handleDeleteQuestion(question.id)}
-                      disabled={loading || status === 'ENDED'}
-                    >
-                      <Icon name="trash" />
-                    </button>
-                  </div>
-                </article>
-              ))}
+          </section>
+
+          {/* Questions section */}
+          <section className="section-block">
+            <div className="section-header">
+              <h2>Questions</h2>
             </div>
-          )}
+            <div className="list-caption">
+              <span>{questions.length} questions</span>
+            </div>
+            {questions.length === 0 && (
+              <div className="poll-card" style={{ padding: 40, textAlign: 'center', color: '#8c9690' }}>
+                No questions yet.
+              </div>
+            )}
+            {[...questions].sort((a, b) => b.upvotes - a.upvotes || new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()).map((question) => (
+              <article className={`question-card${question.status === 'HIDDEN' ? ' hidden-question' : ''}`} key={question.id}>
+                <div className="vote-box">
+                  <strong>{question.upvotes}</strong>
+                  <span>votes</span>
+                </div>
+                <div className="question-copy">
+                  <p>{question.text}</p>
+                  <span>
+                    {question.authorName ? `${question.authorName} · ` : ''}
+                    {question.status === 'VISIBLE' ? 'Visible to everyone' : 'Hidden from audience'}
+                  </span>
+                </div>
+                <div className="moderation">
+                  <button
+                    title={question.status === 'VISIBLE' ? 'Hide question' : 'Show question'}
+                    onClick={() => handleToggleVisibility(question.id, question.status === 'VISIBLE')}
+                    disabled={loading || status === 'ENDED'}
+                  >
+                    <Icon name={question.status === 'VISIBLE' ? 'eyeOff' : 'eye'} />
+                  </button>
+                  <button
+                    title="Delete question"
+                    className="delete"
+                    onClick={() => handleDeleteQuestion(question.id)}
+                    disabled={loading || status === 'ENDED'}
+                  >
+                    <Icon name="trash" />
+                  </button>
+                </div>
+              </article>
+            ))}
+          </section>
         </section>
       </div>
     </main>
   )
 }
+

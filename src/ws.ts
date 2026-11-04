@@ -4,7 +4,7 @@ import { API_BASE } from './types'
 export interface WsHandlers {
   onPoll: (poll: unknown) => void
   onQuestions: (questions: unknown[]) => void
-  onStatus: (status: { status: string }) => void
+  onStatus: (status: { status: string; participantCount?: number }) => void
 }
 
 export function createWsClient(code: string, handlers: WsHandlers): Client {

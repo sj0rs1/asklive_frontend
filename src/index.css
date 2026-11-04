@@ -69,6 +69,10 @@
 .live-pill i,.status i,.accepting i,.audience-card i,.attendee-nav i { width:6px; height:6px; background:#67aa59; border-radius:50%; box-shadow:0 0 0 3px #d9ead4; }
 .end-button { padding:9px 14px; color:#9c433c; border:1px solid #e5cfcc; border-radius:7px; font-size:12px; font-weight:600; background:#fff; }
 .end-button:hover { background:#fff2ef; }
+.end-confirm { display:flex; flex-direction:column; align-items:flex-end; gap:10px; }
+.end-confirm-text { margin:0; color:#9c433c; font-size:13px; font-weight:700; }
+.end-confirm-actions { display:flex; align-items:center; gap:12px; }
+.end-confirm-actions .primary-button { min-height:38px; padding:7px 14px; font-size:12px; }
 .dashboard-shell { display:grid; grid-template-columns:240px 1fr; min-height:calc(100vh - 76px); }
 .dashboard-shell aside { padding:30px 20px; background:#173d2e; color:white; }
 .side-label { margin:0 12px 12px; color:#8da89a; font-size:10px; letter-spacing:1.5px; text-transform:uppercase; }
@@ -109,6 +113,19 @@
 .track { height:5px; overflow:hidden; background:#edf0ec; border-radius:4px; }
 .track span { display:block; height:100%; background:#91b957; border-radius:4px; }
 .poll-footer { display:flex; justify-content:space-between; padding:11px 24px 11px 82px; color:#8c9690; background:#fafbf8; border-top:1px solid #ecefea; font-size:10px; }
+
+.poll-top { position:relative; padding-left: 56px; }
+.minimize-button { position:absolute; top:14px; left:16px; display:grid; place-items:center; width:34px; height:34px; color:#728078; border:1px solid #dce1da; border-radius:6px; background:#fff; cursor:pointer; z-index:2; }
+.minimize-button:hover { background:#eef2ec; }
+.minimize-button:disabled { opacity:0.5; cursor:not-allowed; }
+.minimize-button svg { width:14px; height:14px; }
+
+.poll-card.minimized { border-left-color:#bfcac3; }
+.poll-card.minimized .minimize-button { color:#3d754a; border-color:#edf5e9; background:#edf5e9; }
+
+.poll-minimized { display:flex; justify-content:space-between; align-items:center; padding:16px 24px; background:#fafbf8; border-top:1px solid #ecefea; font-size:12px; color:#8c9690; }
+.minimized-hint { font-size:10px; color:#a5ada7; text-transform:uppercase; letter-spacing:0.5px; }
+
 .accepting { display:flex; align-items:center; gap:7px; color:#5e815d; }
 .composer { padding:24px; border-color:#bdd19e; }
 .composer-title { display:flex; justify-content:space-between; align-items:start; margin-bottom:20px; }
@@ -126,6 +143,11 @@
 .composer-actions { display:flex; align-items:center; justify-content:space-between; margin-top:18px; }
 .text-button { display:flex; align-items:center; gap:5px; color:#50704f; font-size:11px; font-weight:700; background:none; border:none; cursor:pointer; }
 .list-caption { display:flex; justify-content:space-between; margin-bottom:12px; color:#8c9690; font-size:11px; }
+
+.section-block { margin-bottom: 48px; }
+.section-header { display:flex; justify-content:space-between; align-items:flex-start; margin-bottom: 20px; }
+.section-header h2 { margin:0; font-size:28px; letter-spacing:-1px; }
+.section-header .eyebrow { margin-bottom:4px; }
 .question-list { display:grid; gap:10px; }
 .question-card { display:grid; grid-template-columns:54px 1fr auto; align-items:center; gap:18px; padding:18px; background:white; border:1px solid #e1e5df; border-radius:10px; }
 .hidden-question { opacity:.6; background:#f0f1ed; }

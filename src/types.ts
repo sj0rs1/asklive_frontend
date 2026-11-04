@@ -34,6 +34,7 @@ export interface SessionState {
   status: SessionStatus
   poll: Poll | null
   questions: QuestionBase[]
+  participantCount: number
 }
 
 export interface ApiError {

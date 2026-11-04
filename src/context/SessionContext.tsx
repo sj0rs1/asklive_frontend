@@ -26,6 +26,8 @@ interface SessionContextValue {
   poll: Poll | null
   polls: Poll[]
   questions: HostQuestion[]
+  participantCount: number
+  pollUpdateVersion: number
   error: string | null
   loading: boolean
   createSession: () => Promise<void>
@@ -35,7 +37,7 @@ interface SessionContextValue {
   launchPoll: (pollId: number) => Promise<void>
   closePoll: (pollId: number) => Promise<void>
   vote: (pollId: number, optionIds: number[]) => Promise<void>
-  askQuestion: (text: string) => Promise<void>
+  askQuestion: (text: string) => Promise<{ id: number; text: string; authorName: string; upvotes: number; createdAt: string }>
   upvoteQuestion: (questionId: number) => Promise<void>
   toggleQuestionStatus: (questionId: number, status: QuestionStatus) => Promise<void>
   deleteQuestion: (questionId: number) => Promise<void>
@@ -56,6 +58,8 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   const [poll, setPoll] = useState<Poll | null>(null)
   const [polls, setPolls] = useState<Poll[]>([])
   const [questions, setQuestions] = useState<HostQuestion[]>([])
+  const [participantCount, setParticipantCount] = useState(0)
+  const [pollUpdateVersion, setPollUpdateVersion] = useState(0)
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
 
@@ -101,6 +105,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
           const exists = all.some((x) => x.pollId === p.pollId)
           return exists ? all.map((x) => (x.pollId === p.pollId ? p : x)) : [...all, p]
         })
+        setPollUpdateVersion((v) => v + 1)
       },
       onQuestions: (payload) => {
         const qs = (payload as HostQuestion[]).map((q) => ({ ...q, status: 'VISIBLE' as QuestionStatus }))
@@ -117,6 +122,9 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       onStatus: (payload) => {
         if (payload.status === 'ENDED') {
           setStatus('ENDED')
+        }
+        if (typeof payload.participantCount === 'number') {
+          setParticipantCount(payload.participantCount)
         }
       },
     })
@@ -144,6 +152,8 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     setPoll(null)
     setPolls([])
     setQuestions([])
+    setParticipantCount(0)
+    setPollUpdateVersion(0)
     localStorage.removeItem(ROLE_KEY)
     localStorage.removeItem(CODE_KEY)
     localStorage.removeItem(HOST_TOKEN_KEY)
@@ -189,7 +199,6 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     setParticipantToken(data.participantToken)
     setRole('attendee')
     setAttendeeName(displayName)
-    setStatus('ACTIVE')
     persist('attendee', joinCode, undefined, data.participantToken, displayName)
     connectWs()
   }, [persist, connectWs])
@@ -211,6 +220,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       )
       setStatus(state.status)
       setPoll(state.poll || null)
+      setParticipantCount(state.participantCount || 0)
       if (role === 'host') {
         const [allPolls, allQuestions] = await Promise.all([
           api.listPolls(sessionCode, authHeaders().hostToken ?? undefined),
@@ -250,7 +260,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   }, [code, authHeaders])
 
   const askQuestion = useCallback(async (text: string) => {
-    await withLoading(() => api.createQuestion(code!, authHeaders().participantToken!, text))
+    return await withLoading(() => api.createQuestion(code!, authHeaders().participantToken!, text))
   }, [code, authHeaders])
 
   const upvoteQuestion = useCallback(async (questionId: number) => {
@@ -282,6 +292,8 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     poll,
     polls,
     questions,
+    participantCount,
+    pollUpdateVersion,
     error,
     loading,
     createSession,
