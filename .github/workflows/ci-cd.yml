@@ -98,8 +98,23 @@ jobs:
           echo "${{ secrets.OPENVPN_USER }}" > vpn-auth.txt
           echo "${{ secrets.OPENVPN_PASSWORD }}" >> vpn-auth.txt
           echo "${{ secrets.OPENVPN_CONFIG }}" > client.ovpn
-          sudo openvpn --config client.ovpn --auth-user-pass vpn-auth.txt --daemon
-          sleep 10
+          sudo openvpn --config client.ovpn --auth-user-pass vpn-auth.txt \
+            --daemon --log vpn.log --writepid vpn.pid
+
+          # Wait up to 60s for the tunnel instead of a blind sleep
+          for i in $(seq 1 30); do
+            if grep -q "Initialization Sequence Completed" vpn.log 2>/dev/null; then
+              echo "VPN connected"; break
+            fi
+            sleep 2
+          done
+
+          if ! grep -q "Initialization Sequence Completed" vpn.log; then
+            echo "VPN failed to connect. Log:"
+            sudo cat vpn.log
+            exit 1
+          fi
+
           rm -f vpn-auth.txt
 
       - name: Deploy to VPS via SSH
