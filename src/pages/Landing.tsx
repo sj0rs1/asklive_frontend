@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from 'react'
+import { useEffect, useState, type FormEvent } from 'react'
 import { Logo } from '../components/Logo'
 import { Icon } from '../components/Icon'
 import { ErrorBanner } from '../components/ErrorBanner'
@@ -9,6 +9,11 @@ export function Landing() {
   const [code, setCode] = useState('')
   const [name, setName] = useState('')
   const [joinLoading, setJoinLoading] = useState(false)
+
+  useEffect(() => {
+    const codeParam = new URLSearchParams(window.location.search).get('code')?.toUpperCase()
+    if (codeParam) setCode(codeParam)
+  }, [])
 
   function handleJoin(event: FormEvent) {
     event.preventDefault()

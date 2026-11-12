@@ -1,0 +1,58 @@
+name: AskLive Frontend CI/CD
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  deploy-frontend:
+    name: 1. CD - Deploy Frontend to VPS
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push'
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: Dockerfile
+          push: true
+          tags: ghcr.io/sj0rs1/asklive-frontend:${{ github.run_number }}
+
+      - name: Deploy frontend to VPS via SSH
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USERNAME }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          port: ${{ secrets.SSH_PORT || 22 }}
+          script: |
+            set -e
+            echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u "${{ github.actor }}" --password-stdin
+            docker pull ghcr.io/sj0rs1/asklive-frontend:${{ github.run_number }}
+            docker network create asklive_network 2>/dev/null || true
+
+            docker rm -f asklive_frontend 2>/dev/null || true
+            docker run -d --name asklive_frontend --network asklive_network \
+              --restart unless-stopped \
+              -p 80:80 \
+              ghcr.io/sj0rs1/asklive-frontend:${{ github.run_number }}
+
+            sleep 15
+            if [ "$(docker inspect -f '{{.State.Running}}' asklive_frontend)" != "true" ]; then
+              docker logs --tail 100 asklive_frontend
+              exit 1
+            fi
+            docker image prune -f

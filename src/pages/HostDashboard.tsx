@@ -5,6 +5,7 @@ import { ErrorBanner } from '../components/ErrorBanner'
 import { useSession } from '../context/SessionContext'
 import type { HostQuestion } from '../api'
 import type { PollOption } from '../types'
+import { QRCodeSVG } from 'qrcode.react'
 
 export function HostDashboard() {
   const {
@@ -34,6 +35,7 @@ export function HostDashboard() {
 
   const activePoll = polls.find((p) => p.status === 'ACTIVE')
   const visibleCount = questions.filter((q) => q.status === 'VISIBLE').length
+  const joinUrl = `${window.location.origin}/?code=${code ?? ''}`
 
   function handleCreatePoll(event: FormEvent) {
     event.preventDefault()
@@ -142,11 +144,17 @@ export function HostDashboard() {
             <strong>{participantCount}</strong>
             <span>people joined</span>
           </div>
+          <div className="qr-section">
+            <p className="side-label">Scan to join</p>
+            <div className="qr-box">
+              <QRCodeSVG value={joinUrl} size={150} bgColor="#ffffff" fgColor="#173d2d" />
+            </div>
+            <p className="qr-hint">Point your camera at the code</p>
+          </div>
         </aside>
         <section className="dash-content">
           <div className="content-heading">
             <div>
-              <p className="eyebrow plain">Session dashboard</p>
               <h1>Polls &amp; Questions</h1>
 
             </div>
@@ -297,7 +305,6 @@ export function HostDashboard() {
                     {isMinimized && (
                       <div className="poll-minimized">
                         <span>{total} total votes</span>
-                        <span className="minimized-hint">Click to expand</span>
                       </div>
                     )}
                   </article>

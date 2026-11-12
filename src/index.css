@@ -85,7 +85,11 @@
 .audience-card > span { font-size:11px; }
 .audience-card div { display:flex; align-items:center; gap:7px; padding-top:14px; margin-top:14px; border-top:1px solid #38604d; font-size:10px; }
 .audience-card p { color:#a7beb2; }
-.dash-content { width:100%; max-width:1020px; padding:48px clamp(28px,5vw,72px) 80px; }
+.qr-section { padding:0 12px; }
+.qr-box { display:grid; place-items:center; width:100%; padding:14px; background:#fff; border-radius:10px; }
+.qr-box svg { display:block; width:150px; height:150px; }
+.qr-hint { margin:8px 0 0; color:#8da89a; font-size:10px; text-align:center; }
+.dash-content { width:100%; max-width:1020px; margin:0 auto; padding:64px clamp(28px,5vw,72px) 120px; }
 .content-heading { display:flex; justify-content:space-between; align-items:flex-end; margin-bottom:32px; }
 .content-heading h1 { margin:4px 0; font-size:36px; letter-spacing:-1.5px; }
 .content-heading > div > p:last-child { color:#7c8781; font-size:13px; }
@@ -239,6 +243,7 @@
   .dashboard-shell { grid-template-columns:1fr; }
   .dashboard-shell aside { display:flex; padding:10px 20px; position:sticky; top:0; z-index:3; }
   .dashboard-shell aside .side-label,.audience-card { display:none; }
+  .dashboard-shell .qr-section { display:none; }
   .dashboard-shell aside > button { justify-content:center; }
   .dash-nav { grid-template-columns:auto 1fr; padding:0 18px; }
   .session-identity { justify-self:end; }

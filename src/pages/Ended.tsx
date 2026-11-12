@@ -32,7 +32,6 @@ export function Ended() {
           Back to AskLive <Icon name="arrow" />
         </button>
       </section>
-      <p className="ended-footer">You can safely close this window.</p>
     </main>
   )
 }

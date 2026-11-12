@@ -41,4 +41,5 @@ export interface ApiError {
   message: string
 }
 
-export const API_BASE = import.meta.env.VITE_API_BASE ?? 'http://localhost:8080'
+const apiBase = import.meta.env.VITE_API_BASE
+export const API_BASE = apiBase ? String(apiBase).replace(/\/+$/, '') : ''
