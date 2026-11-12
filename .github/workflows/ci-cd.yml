@@ -123,7 +123,7 @@ jobs:
 
           rm -f vpn-auth.txt
 
-      - name: Deploy to VPS via SSH 
+      - name: Deploy to VPS via SSH
         uses: appleboy/ssh-action@v1.0.3
         with:
           host: ${{ secrets.VPS_HOST }}
