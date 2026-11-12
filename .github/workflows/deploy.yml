@@ -60,7 +60,7 @@ jobs:
               -p 80:80 \
               ghcr.io/sj0rs1/asklive-frontend:${{ github.run_number }}
 
-            sleep 15
+            sleep 30
             if [ "$(docker inspect -f '{{.State.Running}}' asklive_frontend)" != "true" ]; then
               docker logs --tail 100 asklive_frontend
               exit 1
