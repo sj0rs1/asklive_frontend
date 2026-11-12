@@ -8,7 +8,7 @@ on:
 
 jobs:
   deploy-frontend:
-    name: 1. CD - Deploy Frontend to VPS
+    name: 1. CD - Deploy Frontend to VPS 
     runs-on: ubuntu-latest
     if: github.event_name == 'push'
     permissions:
