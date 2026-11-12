@@ -31,6 +31,15 @@ jobs:
           push: true
           tags: ghcr.io/sj0rs1/asklive-frontend:${{ github.run_number }}
 
+      - name: Connect to Fontys Netlab OpenVPN
+        run: |
+          sudo apt-get update && sudo apt-get install -y openvpn
+          echo "${{ secrets.OPENVPN_USER }}" > vpn-auth.txt
+          echo "${{ secrets.OPENVPN_PASSWORD }}" >> vpn-auth.txt
+          sudo openvpn --config client.ovpn --auth-user-pass vpn-auth.txt --daemon
+          sleep 10
+          rm -f vpn-auth.txt
+
       - name: Deploy frontend to VPS via SSH
         uses: appleboy/ssh-action@v1.0.3
         with:
