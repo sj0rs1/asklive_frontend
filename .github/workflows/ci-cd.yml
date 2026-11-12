@@ -98,6 +98,12 @@ jobs:
           echo "${{ secrets.OPENVPN_USER }}" > vpn-auth.txt
           echo "${{ secrets.OPENVPN_PASSWORD }}" >> vpn-auth.txt
           echo "${{ secrets.OPENVPN_CONFIG }}" > client.ovpn
+          chmod 600 vpn-auth.txt
+
+          # Create the log as the runner user so grep can read it later
+          touch vpn.log
+          chmod 666 vpn.log
+
           sudo openvpn --config client.ovpn --auth-user-pass vpn-auth.txt \
             --daemon --log vpn.log --writepid vpn.pid
 
@@ -111,7 +117,7 @@ jobs:
 
           if ! grep -q "Initialization Sequence Completed" vpn.log; then
             echo "VPN failed to connect. Log:"
-            sudo cat vpn.log
+            cat vpn.log
             exit 1
           fi
 
