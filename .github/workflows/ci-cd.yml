@@ -34,6 +34,45 @@ jobs:
           name: compiled-frontend
           path: dist/
 
+  sonar:
+    name: SonarQube Scan
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+        with:
+          fetch-depth: 0
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+      - name: Cache SonarQube packages
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
+        with:
+          path: ~/.sonar/cache
+          key: ${{ runner.os }}-sonar
+          restore-keys: ${{ runner.os }}-sonar
+      - name: Cache npm packages
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
+        with:
+          path: ~/.npm
+          key: ${{ runner.os }}-npm-${{ hashFiles('**/package-lock.json') }}
+          restore-keys: ${{ runner.os }}-npm-
+      - name: Connect to Fontys Netlab OpenVPN
+        run: |
+          sudo apt-get update && sudo apt-get install -y openvpn
+          echo "${{ secrets.OPENVPN_USER }}" > vpn-auth.txt
+          echo "${{ secrets.OPENVPN_PASSWORD }}" >> vpn-auth.txt
+          echo "${{ secrets.OPENVPN_CONFIG }}" > client.ovpn
+          sudo openvpn --config client.ovpn --auth-user-pass vpn-auth.txt --daemon
+          sleep 10
+          rm -f vpn-auth.txt
+      - name: SonarQube Scan
+        uses: SonarSource/sonar-scanner-cli@latest
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+          SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
+
   github-release:
     name: 2. Create GitHub Release
     needs: build-and-test
@@ -123,7 +162,7 @@ jobs:
 
           rm -f vpn-auth.txt
 
-      - name: Deploy to VPS via SSH
+      - name: Deploy to VPS via SSH 
         uses: appleboy/ssh-action@v1.0.3
         with:
           host: ${{ secrets.VPS_HOST }}
