@@ -72,6 +72,11 @@ jobs:
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
           SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
+        with:
+          args: |
+            -Dsonar.projectKey=sj0rs1_asklive_frontend
+            -Dsonar.projectName=asklive_frontend
+            -Dsonar.sources=src
 
   github-release:
     name: 2. Create GitHub Release
