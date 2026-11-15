@@ -68,7 +68,7 @@ jobs:
           sleep 10
           rm -f vpn-auth.txt
       - name: SonarQube Scan
-        uses: SonarSource/sonar-scanner-cli@latest
+        uses: SonarSource/sonar-scanner-cli@master
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
           SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
