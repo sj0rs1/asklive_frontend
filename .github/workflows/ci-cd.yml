@@ -2,19 +2,17 @@ name: AskLive Frontend CI/CD
 
 on:
   push:
-    branches: [main]
+    branches: [ main ]
   pull_request:
-    branches: [main]
+    branches: [ main ]
 
 jobs:
   build-and-test:
-    name: 1. CI - Build
+    name: Build
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
+      - uses: actions/checkout@v4 # gets code from repository
 
       - name: Set up Node
         uses: actions/setup-node@v4
@@ -22,64 +20,22 @@ jobs:
           node-version: '22'
           cache: 'npm'
 
-      - name: Build Frontend
+      - name: Build frontend
         run: |
           npm ci
           npm run lint --if-present
           npm run build
 
-      - if: success()
+      - name: Upload build to artifact
         uses: actions/upload-artifact@v4
         with:
           name: compiled-frontend
           path: dist/
-
-  sonar:
-    name: SonarQube Scan
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
-        with:
-          fetch-depth: 0
-      - name: Set up Node
-        uses: actions/setup-node@v4
-        with:
-          node-version: '22'
-          cache: 'npm'
-      - name: Cache SonarQube packages
-        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
-        with:
-          path: ~/.sonar/cache
-          key: ${{ runner.os }}-sonar
-          restore-keys: ${{ runner.os }}-sonar
-      - name: Cache npm packages
-        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
-        with:
-          path: ~/.npm
-          key: ${{ runner.os }}-npm-${{ hashFiles('**/package-lock.json') }}
-          restore-keys: ${{ runner.os }}-npm-
-      - name: Connect to Fontys Netlab OpenVPN
-        run: |
-          sudo apt-get update && sudo apt-get install -y openvpn
-          echo "${{ secrets.OPENVPN_USER }}" > vpn-auth.txt
-          echo "${{ secrets.OPENVPN_PASSWORD }}" >> vpn-auth.txt
-          echo "${{ secrets.OPENVPN_CONFIG }}" > client.ovpn
-          sudo openvpn --config client.ovpn --auth-user-pass vpn-auth.txt --daemon
-          sleep 10
-          rm -f vpn-auth.txt
-      - name: SonarQube Scan
-        uses: SonarSource/sonarqube-scan-action@v8.3.0
-        env:
-          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
-          SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
-        with:
-          args: |
-            -Dsonar.projectKey=sj0rs1_asklive_frontend
-            -Dsonar.projectName=asklive_frontend
-            -Dsonar.sources=src
+          if-no-files-found: error
+          retention-days: 1
 
   github-release:
-    name: 2. Create GitHub Release
+    name: Create GitHub Release
     needs: build-and-test
     if: github.event_name == 'push' && github.ref_name == 'main'
     runs-on: ubuntu-latest
@@ -87,8 +43,6 @@ jobs:
       contents: write
 
     steps:
-      - uses: actions/checkout@v4
-
       - uses: actions/download-artifact@v4
         with:
           name: compiled-frontend
@@ -103,94 +57,95 @@ jobs:
           tag_name: v${{ github.run_number }}
           name: Release v${{ github.run_number }}
           files: asklive-frontend.zip
-          draft: false
-          prerelease: false
 
   deploy-to-vps:
-    name: 3. CD - Deploy to VPS
+    name: Deploy to VPS
     needs: build-and-test
     if: github.event_name == 'push'
     runs-on: ubuntu-latest
     permissions:
       contents: read
-      packages: write
 
     steps:
       - uses: actions/checkout@v4
-
       - uses: actions/download-artifact@v4
         with:
           name: compiled-frontend
           path: dist/
 
-      - uses: docker/login-action@v3
-        with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-
-      - uses: docker/build-push-action@v5
-        with:
-          context: .
-          file: Dockerfile
-          push: true
-          tags: ghcr.io/sj0rs1/asklive-frontend:${{ github.run_number }}
-
-      - name: Connect to Fontys Netlab OpenVPN
+      - name: Install OpenVPN
         run: |
-          sudo apt-get update && sudo apt-get install -y openvpn
-          echo "${{ secrets.OPENVPN_USER }}" > vpn-auth.txt
-          echo "${{ secrets.OPENVPN_PASSWORD }}" >> vpn-auth.txt
-          echo "${{ secrets.OPENVPN_CONFIG }}" > client.ovpn
-          chmod 600 vpn-auth.txt
+          sudo apt update
+          sudo apt install -y openvpn openvpn-systemd-resolved
 
-          # Create the log as the runner user so grep can read it later
-          touch vpn.log
-          chmod 666 vpn.log
+      - name: Write VPN config
+        run: echo "${{ secrets.OPENVPN_CONFIG }}" > client.ovpn
 
-          sudo openvpn --config client.ovpn --auth-user-pass vpn-auth.txt \
-            --daemon --log vpn.log --writepid vpn.pid
+      - name: Connect to VPN
+        uses: kota65535/github-openvpn-connect-action@v3
+        with:
+          config_file: client.ovpn
+          username: ${{ secrets.OPENVPN_USER }}
+          password: ${{ secrets.OPENVPN_PASSWORD }}
 
-          # Wait up to 60s for the tunnel instead of a blind sleep
-          for i in $(seq 1 30); do
-            if grep -q "Initialization Sequence Completed" vpn.log 2>/dev/null; then
-              echo "VPN connected"; break
-            fi
-            sleep 2
-          done
+      - name: Upload files
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USERNAME }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          port: ${{ secrets.SSH_PORT || 22 }}
+          source: "dist,Dockerfile,deploy.sh"
+          target: /home/sjors/asklive_frontend
+          rm: true # wipes the target folder first so old build files don't pile up
 
-          if ! grep -q "Initialization Sequence Completed" vpn.log; then
-            echo "VPN failed to connect. Log:"
-            cat vpn.log
-            exit 1
-          fi
-
-          rm -f vpn-auth.txt
-
-      - name: Deploy to VPS via SSH 
+      - name: Restart frontend
         uses: appleboy/ssh-action@v1.0.3
         with:
           host: ${{ secrets.VPS_HOST }}
           username: ${{ secrets.VPS_USERNAME }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           port: ${{ secrets.SSH_PORT || 22 }}
-          script: |
-            set -e
-            echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u "${{ github.actor }}" --password-stdin
-            docker pull ghcr.io/sj0rs1/asklive-frontend:${{ github.run_number }}
-            docker network create asklive_network 2>/dev/null || true
+          script: bash ~/asklive_frontend/deploy.sh
 
-            docker rm -f asklive_frontend 2>/dev/null || true
-            docker run -d --name asklive_frontend --network asklive_network \
-              --restart unless-stopped \
-              -p 80:80 \
-              ghcr.io/sj0rs1/asklive-frontend:${{ github.run_number }}
+  sonar:
+    name: SonarQube Scan
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+        with:
+          fetch-depth: 0
 
-            # Fail the pipeline if the frontend crashed, and print why
-            sleep 15
-            if [ "$(docker inspect -f '{{.State.Running}}' asklive_frontend)" != "true" ]; then
-              docker logs --tail 100 asklive_frontend
-              exit 1
-            fi
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
 
-            docker image prune -f
+      - name: Cache SonarQube packages
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
+        with:
+          path: ~/.sonar/cache
+          key: ${{ runner.os }}-sonar
+          restore-keys: ${{ runner.os }}-sonar
+
+      - name: Write VPN config
+        run: echo "${{ secrets.OPENVPN_CONFIG }}" > client.ovpn
+
+      - name: Connect to VPN
+        uses: kota65535/github-openvpn-connect-action@v3
+        with:
+          config_file: client.ovpn
+          username: ${{ secrets.OPENVPN_USER }}
+          password: ${{ secrets.OPENVPN_PASSWORD }}
+
+      - name: SonarQube Scan
+        uses: SonarSource/sonarqube-scan-action@v8.3.0
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+          SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
+        with:
+          args: |
+            -Dsonar.projectKey=sj0rs1_asklive_frontend
+            -Dsonar.projectName=asklive_frontend
+            -Dsonar.sources=src
